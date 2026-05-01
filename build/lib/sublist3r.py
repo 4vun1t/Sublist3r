@@ -962,7 +962,7 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
         chosenEnums = [
             BaiduEnum, YahooEnum, GoogleEnum, BingEnum, AskEnum,
             NetcraftEnum, ThreatCrowd,
-            CrtSearch, PassiveDNS, HackertargetEnum,Virustotal
+            CrtSearch, PassiveDNS, HackertargetEnum
         ]
     else:
         engines = engines.split(',')
