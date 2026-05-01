@@ -961,8 +961,8 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
     if engines is None:
         chosenEnums = [
             BaiduEnum, YahooEnum, GoogleEnum, BingEnum, AskEnum,
-            NetcraftEnum, DNSdumpster, Virustotal, ThreatCrowd,
-            CrtSearch, PassiveDNS,HackertargetEnum
+            NetcraftEnum, Virustotal, ThreatCrowd,
+            CrtSearch, PassiveDNS, HackertargetEnum
         ]
     else:
         engines = engines.split(',')
