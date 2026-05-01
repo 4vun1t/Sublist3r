@@ -72,15 +72,7 @@ def no_color():
 
 
 def banner():
-    print("""%s
-                 ____        _     _ _     _   _____
-                / ___| _   _| |__ | (_)___| |_|___ / _ __
-                \___ \| | | | '_ \| | / __| __| |_ \| '__|
-                 ___) | |_| | |_) | | \__ \ |_ ___) | |
-                |____/ \__,_|_.__/|_|_|___/\__|____/|_|%s%s
-
-                # Coded By Ahmed Aboul-Ela - @aboul3la
-    """ % (R, W, Y))
+    return 
 
 
 def parser_error(errmsg):
@@ -319,6 +311,44 @@ class GoogleEnum(enumratorBaseThreaded):
             query = "site:{domain} -www.{domain}".format(domain=self.domain)
         return query
 
+class HackertargetEnum(enumratorBaseThreaded):
+    def __init__(self, domain, subdomains=None, q=None, silent=False, verbose=True):
+        subdomains = subdomains or []
+        # HackerTarget API endpoint
+        base_url = 'https://api.hackertarget.com/hostsearch/?q={query}'
+        self.engine_name = "HackerTarget"
+        self.MAX_DOMAINS = 11
+        self.MAX_PAGES = 0
+        enumratorBaseThreaded.__init__(self, base_url, self.engine_name, domain, subdomains, q=q, silent=silent, verbose=verbose)
+        self.q = q
+        return
+
+    def extract_domains(self, resp):
+        links_list = list()
+        try:
+            # The API returns plain text, line-by-line in format: subdomain.domain.com,IP_Address
+            lines = resp.splitlines()
+            for line in lines:
+                if ',' in line:
+                    subdomain = line.split(',').strip()
+                    # Verify it's a valid subdomain of our target and not a duplicate
+                    if subdomain.endswith(self.domain) and subdomain not in self.subdomains and subdomain != self.domain:
+                        if self.verbose:
+                            self.print_("%s%s: %s%s" % (R, self.engine_name, W, subdomain))
+                        self.subdomains.append(subdomain)
+                        links_list.append(subdomain)
+        except Exception:
+            pass
+
+        return links_list
+
+    def get_page(self, num):
+        # Pagination isn't used for this API, but required by the base class
+        return num + 1
+
+    def generate_query(self):
+        # We only need to feed the root domain to the API
+        return self.domain
 
 class YahooEnum(enumratorBaseThreaded):
     def __init__(self, domain, subdomains=None, q=None, silent=False, verbose=True):
@@ -922,7 +952,8 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
                          'virustotal': Virustotal,
                          'threatcrowd': ThreatCrowd,
                          'ssl': CrtSearch,
-                         'passivedns': PassiveDNS
+                         'passivedns': PassiveDNS,
+                         'hackertarget':HackertargetEnum
                          }
 
     chosenEnums = []
@@ -931,7 +962,7 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
         chosenEnums = [
             BaiduEnum, YahooEnum, GoogleEnum, BingEnum, AskEnum,
             NetcraftEnum, DNSdumpster, Virustotal, ThreatCrowd,
-            CrtSearch, PassiveDNS
+            CrtSearch, PassiveDNS,HackertargetEnum
         ]
     else:
         engines = engines.split(',')
