@@ -95,7 +95,7 @@ def parse_args():
     parser.add_argument('-e', '--engines', help='Specify a comma-separated list of search engines')
     parser.add_argument('-o', '--output', help='Save the results to text file')
     parser.add_argument('-of', '--output-format', help='Output format: markdown, raw (default), or json', choices=['markdown', 'raw', 'json'], default='raw')
-    parser.add_argument('--pprtscan', help='Scan for open ports using Shodan InternetDB', default=False, action='store_true')
+    parser.add_argument('--portscan', help='Scan for open ports using Shodan InternetDB', default=False, action='store_true')
     parser.add_argument('--no-resolve', help='Do not resolve subdomains to IP addresses', default=False, action='store_true')
     parser.add_argument('-n', '--no-color', help='Output without color', default=False, action='store_true')
     return parser.parse_args()
@@ -111,10 +111,12 @@ def write_file(filename, subdomains, output_format='raw', port_scan_results=None
                 item = {'subdomain': subdomain}
                 if ip_map and subdomain in ip_map:
                     item['ip'] = ip_map[subdomain]
+                if port_scan_results and subdomain in port_scan_results:
+                    item['ports'] = port_scan_results[subdomain]['ports']
                 items.append(item)
-            output['subdomains'] = items
             if port_scan_results:
                 output['port_scan'] = port_scan_results
+            output['subdomains'] = items
             f.write(json.dumps(output, indent=2) + os.linesep)
         elif output_format == 'markdown':
             f.write("# Sublist3r Results\n\n")
@@ -160,15 +162,19 @@ def write_file(filename, subdomains, output_format='raw', port_scan_results=None
                         f.write(subdomain + os.linesep)
 
 
-def pprt_scan(subdomains):
+def portscan_shodan(subdomains, ip_map):
     results = {}
     for subdomain in subdomains:
+        ip = ip_map.get(subdomain)
+        if not ip:
+            continue
         try:
-            resp = requests.get("https://internetdb.shodan.io/%s" % subdomain, timeout=10)
+            resp = requests.get("https://internetdb.shodan.io/%s" % ip, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                if data.get('ports'):
-                    results[subdomain] = data
+                ports = data.get('ports', [])
+                if ports:
+                    results[subdomain] = {'ip': ip, 'ports': ports}
         except Exception:
             pass
     return results
@@ -989,7 +995,7 @@ class portscan():
             t.start()
 
 
-def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, engines, pprtscan=False, output_format='raw', no_resolve=False):
+def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, engines, portscan=False, output_format='raw', no_resolve=False):
     bruteforce_list = set()
     search_list = set()
 
@@ -1080,16 +1086,16 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
         if not no_resolve:
             ip_map = resolve_ips(subdomains)
 
-        pprtscan_results = None
-        if pprtscan:
+        portscan_results = None
+        if portscan:
             if not silent:
                 print(G + "[-] Starting Shodan InternetDB port scan.." + W)
-            pprtscan_results = pprt_scan(subdomains)
+            portscan_results = portscan_shodan(subdomains, ip_map)
             if not silent:
                 print(G + "[-] Shodan InternetDB port scan completed" + W)
 
         if savefile:
-            write_file(savefile, subdomains, output_format=output_format, port_scan_results=pprtscan_results, ip_map=ip_map)
+            write_file(savefile, subdomains, output_format=output_format, port_scan_results=portscan_results, ip_map=ip_map)
 
         if not silent:
             print(Y + "[-] Total Unique Subdomains Found: %s" % len(subdomains) + W)
@@ -1101,7 +1107,7 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
             pscan = portscan(subdomains, ports)
             pscan.run()
 
-        if not silent and not ports:
+        if not silent:
             if output_format == 'json':
                 output = {}
                 items = []
@@ -1109,10 +1115,12 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
                     item = {'subdomain': subdomain}
                     if ip_map and subdomain in ip_map:
                         item['ip'] = ip_map[subdomain]
+                    if portscan_results and subdomain in portscan_results:
+                        item['ports'] = portscan_results[subdomain]['ports']
                     items.append(item)
+                if portscan_results:
+                    output['port_scan'] = portscan_results
                 output['subdomains'] = items
-                if pprtscan_results:
-                    output['port_scan'] = pprtscan_results
                 print(json.dumps(output, indent=2))
             elif output_format == 'markdown':
                 print("# Sublist3r Results\n")
@@ -1126,20 +1134,20 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
                 else:
                     for subdomain in subdomains:
                         print("- %s" % subdomain)
-                if pprtscan_results:
+                if portscan_results:
                     print("\n## Port Scan Results\n")
                     print("| Subdomain | IP | Ports |")
                     print("|-----------|-----|-------|")
-                    for subdomain, data in pprtscan_results.items():
+                    for subdomain, data in portscan_results.items():
                         ip = data.get('ip', '')
                         ports_str = ', '.join(str(p) for p in data.get('ports', []))
                         print("| %s | %s | %s |" % (subdomain, ip, ports_str))
             else:
-                if pprtscan_results:
+                if portscan_results:
                     for subdomain in subdomains:
                         ip = ip_map.get(subdomain, '') if ip_map else ''
-                        if subdomain in pprtscan_results:
-                            data = pprtscan_results[subdomain]
+                        if subdomain in portscan_results:
+                            data = portscan_results[subdomain]
                             pports = ', '.join(str(p) for p in data.get('ports', []))
                             if ip:
                                 print("%s,%s,%s" % (subdomain, ip, pports))
@@ -1173,7 +1181,7 @@ def interactive():
     if args.no_color:
         no_color()
     banner()
-    res = main(domain, threads, savefile, ports, silent=False, verbose=verbose, enable_bruteforce=enable_bruteforce, engines=engines, pprtscan=args.pprtscan, output_format=args.output_format, no_resolve=args.no_resolve)
+    res = main(domain, threads, savefile, ports, silent=False, verbose=verbose, enable_bruteforce=enable_bruteforce, engines=engines, portscan=args.portscan, output_format=args.output_format, no_resolve=args.no_resolve)
 
 if __name__ == "__main__":
     interactive()
