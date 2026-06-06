@@ -117,7 +117,7 @@ def write_file(filename, subdomains, output_format='raw', port_scan_results=None
             if port_scan_results:
                 output['port_scan'] = port_scan_results
             output['subdomains'] = items
-            f.write(json.dumps(output, indent=2) + os.linesep)
+            f.write(json.dumps(output, separators=(',', ':')) + os.linesep)
         elif output_format == 'markdown':
             f.write("# Sublist3r Results\n\n")
             f.write("## Subdomains\n\n")
@@ -1121,7 +1121,7 @@ def main(domain, threads, savefile, ports, silent, verbose, enable_bruteforce, e
                 if portscan_results:
                     output['port_scan'] = portscan_results
                 output['subdomains'] = items
-                print(json.dumps(output, indent=2))
+                print(json.dumps(output, separators=(',', ':')))
             elif output_format == 'markdown':
                 print("# Sublist3r Results\n")
                 print("## Subdomains\n")
