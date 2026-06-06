@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Sublist3r
-Version: 1.6
+Version: 1.8
 Summary: Subdomains enumeration tool for penetration testers
 Home-page: https://github.com/aboul3la/Sublist3r
 License: GPL-2.0
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.4
 Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Topic :: Security
-Requires-Python: >=2.7
+Requires-Python: >=3.7
 License-File: LICENSE
 Requires-Dist: dnspython
 Requires-Dist: requests
